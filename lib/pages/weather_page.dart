@@ -31,13 +31,12 @@ class _WeatherPageState extends State<WeatherPage> {
   String _selectedCountry = "TH";
 
   final _cityCtl = TextEditingController();
-  final _zipCtl = TextEditingController();
-  final _latCtl = TextEditingController();
-  final _lonCtl = TextEditingController();
+  final _zipCtl  = TextEditingController();
+  final _latCtl  = TextEditingController();
+  final _lonCtl  = TextEditingController();
 
-  // -------- Animated background --------
+  // ---------- Animated gradient background ----------
   List<Color> _bgColors = const [Color(0xFF2196F3), Color(0xFF3F51B5)];
-
   List<Color> _colorsFor(String cond) {
     cond = cond.toLowerCase();
     if (cond.contains("thunder")) return const [Color(0xFF0F172A), Color(0xFF334155)];
@@ -66,7 +65,22 @@ class _WeatherPageState extends State<WeatherPage> {
     return "assets/lottie/clear-day.json";
   }
 
-  // -------- Search handlers --------
+  // ---------- Sun/Moon background ----------
+  String get _dayBg => 'assets/lottie/Sun Rising.json';
+  String get _nightBg => 'assets/lottie/Moon Animation.json';
+
+  /// ใช้ข้อมูลพระอาทิตย์ขึ้น/ตก ถ้ายังไม่มี weather ให้ fallback ตามเวลาท้องถิ่นเครื่อง
+  bool get _isDayNow {
+    if (_weather == null) {
+      final h = DateTime.now().hour;
+      return h >= 6 && h < 18;
+    }
+    return _weather!.isDayAtLocation;
+  }
+
+  String get _bgLottie => _isDayNow ? _dayBg : _nightBg;
+
+  // ---------- Search handlers ----------
   Future<void> _searchByCity() async {
     setState(() { _loading = true; _error = null; });
     try {
@@ -109,7 +123,7 @@ class _WeatherPageState extends State<WeatherPage> {
   void _applyWeather(Weather w) {
     setState(() {
       _weather = w;
-      _bgColors = _colorsFor(w.mainCondition);
+      _bgColors = _colorsFor(w.mainCondition); // gradient ชั้นล่างยังเปลี่ยนตามสภาพอากาศ
     });
   }
 
@@ -125,20 +139,15 @@ class _WeatherPageState extends State<WeatherPage> {
       ),
       extendBodyBehindAppBar: true,
 
-      // ---------- Drawer ----------
       drawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const DrawerHeader(
-              child: Text("Search Settings", style: TextStyle(fontSize: 18)),
-            ),
+            const DrawerHeader(child: Text("Search Settings", style: TextStyle(fontSize: 18))),
             DropdownButton<String>(
               value: _selectedCountry,
               isExpanded: true,
-              items: _countries
-                  .map((c) => DropdownMenuItem(value: c["code"], child: Text(c["name"]!)))
-                  .toList(),
+              items: _countries.map((c) => DropdownMenuItem(value: c["code"], child: Text(c["name"]!))).toList(),
               onChanged: (v) => setState(() => _selectedCountry = v!),
             ),
             const SizedBox(height: 10),
@@ -166,81 +175,94 @@ class _WeatherPageState extends State<WeatherPage> {
         ),
       ),
 
-      // ---------- Animated background + content ----------
-      body: AnimatedContainer(
-        duration: const Duration(milliseconds: 700),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: _bgColors,
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: Stack(
+        children: [
+          // 1) Gradient ชั้นล่างสุด
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: _bgColors,
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-        ),
-        child: Center(
-          child: _loading
-              ? const CircularProgressIndicator(color: Colors.white)
-              : _error != null
-                  ? Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Text(
-                        "Error: $_error",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    )
-                  : _weather == null
-                      ? const Text("กรุณาเลือกวิธีค้นหาจาก Drawer",
-                          style: TextStyle(color: Colors.white))
-                      : Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Lottie.asset(
-                              _assetFor(_weather!.mainCondition),
-                              width: 200,
-                              height: 200,
-                              repeat: true,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _weather!.cityName,
-                              style: GoogleFonts.michroma(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+
+          // 2) Lottie พื้นหลัง (Sun/Moon) + crossfade
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 600),
+                child: Lottie.asset(
+                  _bgLottie,
+                  key: ValueKey(_bgLottie),
+                  fit: BoxFit.cover,
+                  repeat: true,
+                ),
+              ),
+            ),
+          ),
+
+          // 3) เลเยอร์ทินท์บาง ๆ เพื่อให้อ่านตัวหนังสือชัด
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.10)),
+          ),
+
+          // 4) เนื้อหา
+          Center(
+            child: _loading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : _error != null
+                    ? Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text("Error: $_error",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white, fontSize: 16)),
+                      )
+                    : _weather == null
+                        ? const Text("กรุณาเลือกวิธีค้นหาจาก Drawer",
+                            style: TextStyle(color: Colors.white))
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Lottie.asset(
+                                _assetFor(_weather!.mainCondition),
+                                width: 200,
+                                height: 200,
+                                repeat: true,
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 400),
-                              transitionBuilder: (child, anim) => SlideTransition(
-                                position: Tween<Offset>(
-                                  begin: const Offset(0, .2),
-                                  end: Offset.zero,
-                                ).animate(CurvedAnimation(
-                                  parent: anim,
-                                  curve: Curves.easeOutCubic,
-                                )),
-                                child: FadeTransition(opacity: anim, child: child),
-                              ),
-                              child: Text(
-                                "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
-                                key: ValueKey("${_weather!.temperature}$_unit"),
+                              const SizedBox(height: 8),
+                              Text(
+                                _weather!.cityName,
                                 style: GoogleFonts.michroma(
-                                  fontSize: 42,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
                                   color: Colors.white,
-                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _weather!.mainCondition,
-                              style: const TextStyle(fontSize: 18, color: Colors.white),
-                            ),
-                          ],
-                        ),
-        ),
+                              const SizedBox(height: 6),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 400),
+                                transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                                child: Text(
+                                  "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
+                                  key: ValueKey("${_weather!.temperature}$_unit"),
+                                  style: GoogleFonts.michroma(
+                                    fontSize: 42,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(_weather!.mainCondition,
+                                  style: const TextStyle(fontSize: 18, color: Colors.white)),
+                            ],
+                          ),
+          ),
+        ],
       ),
     );
   }
