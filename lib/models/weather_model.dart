@@ -3,7 +3,7 @@ class Weather {
   final double temperature;
   final String mainCondition;
 
-  // เพิ่มจากเดิม
+  // ใช้ตัดสินกลางวัน/กลางคืน
   final int sunrise;         // unix seconds (UTC)
   final int sunset;          // unix seconds (UTC)
   final int timezoneOffset;  // seconds offset from UTC
@@ -29,7 +29,7 @@ class Weather {
     );
   }
 
-  /// true ถ้าตอนนี้ (เวลาท้องถิ่นของเมืองนั้น) อยู่ระหว่างพระอาทิตย์ขึ้น–ตก
+  /// true ถ้า "เวลาท้องถิ่นของเมืองนั้น" อยู่ระหว่างพระอาทิตย์ขึ้น–ตก
   bool get isDayAtLocation {
     final nowLocal =
         DateTime.now().toUtc().add(Duration(seconds: timezoneOffset));

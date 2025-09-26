@@ -7,23 +7,17 @@ enum TempUnit { celsius, fahrenheit, kelvin }
 extension TempUnitX on TempUnit {
   String get apiUnits {
     switch (this) {
-      case TempUnit.celsius:
-        return 'metric';
-      case TempUnit.fahrenheit:
-        return 'imperial';
-      case TempUnit.kelvin:
-        return 'standard';
+      case TempUnit.celsius: return 'metric';
+      case TempUnit.fahrenheit: return 'imperial';
+      case TempUnit.kelvin: return 'standard';
     }
   }
 
   String get symbol {
     switch (this) {
-      case TempUnit.celsius:
-        return '°C';
-      case TempUnit.fahrenheit:
-        return '°F';
-      case TempUnit.kelvin:
-        return 'K';
+      case TempUnit.celsius: return '°C';
+      case TempUnit.fahrenheit: return '°F';
+      case TempUnit.kelvin: return 'K';
     }
   }
 }
@@ -39,8 +33,7 @@ class WeatherServices {
     if (res.statusCode != 200) {
       throw Exception('HTTP_${res.statusCode}: ${res.body}');
     }
-    final map = jsonDecode(res.body) as Map<String, dynamic>;
-    return Weather.fromJson(map);
+    return Weather.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   Future<Weather> getByCoords(double lat, double lon, {TempUnit unit = TempUnit.celsius}) {

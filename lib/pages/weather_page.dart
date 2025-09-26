@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 
@@ -35,7 +36,7 @@ class _WeatherPageState extends State<WeatherPage> {
   final _latCtl  = TextEditingController();
   final _lonCtl  = TextEditingController();
 
-  // ---------- Animated gradient background ----------
+  // -------- Animated gradient (ตามสภาพอากาศ) --------
   List<Color> _bgColors = const [Color(0xFF2196F3), Color(0xFF3F51B5)];
   List<Color> _colorsFor(String cond) {
     cond = cond.toLowerCase();
@@ -51,6 +52,7 @@ class _WeatherPageState extends State<WeatherPage> {
     return const [Color(0xFFFFA000), Color(0xFF1976D2)]; // clear/default
   }
 
+  // Lottie icon กลางจอ
   String _assetFor(String cond) {
     cond = cond.toLowerCase();
     if (cond.contains("thunder")) return "assets/lottie/Weather-storm.json";
@@ -65,11 +67,9 @@ class _WeatherPageState extends State<WeatherPage> {
     return "assets/lottie/clear-day.json";
   }
 
-  // ---------- Sun/Moon background ----------
+  // -------- Lottie พื้นหลัง Sun/Moon --------
   String get _dayBg => 'assets/lottie/Sun Rising.json';
   String get _nightBg => 'assets/lottie/Moon Animation.json';
-
-  /// ใช้ข้อมูลพระอาทิตย์ขึ้น/ตก ถ้ายังไม่มี weather ให้ fallback ตามเวลาท้องถิ่นเครื่อง
   bool get _isDayNow {
     if (_weather == null) {
       final h = DateTime.now().hour;
@@ -77,19 +77,17 @@ class _WeatherPageState extends State<WeatherPage> {
     }
     return _weather!.isDayAtLocation;
   }
-
   String get _bgLottie => _isDayNow ? _dayBg : _nightBg;
 
-  // ---------- Search handlers ----------
+  // -------- Search handlers --------
   Future<void> _searchByCity() async {
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCityCountry(_cityCtl.text, _selectedCountry, unit: _unit);
       _applyWeather(w);
-      if (Navigator.canPop(context)) Navigator.pop(context); // ปิด Drawer
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally { setState(() => _loading = false); }
+      if (Navigator.canPop(context)) Navigator.pop(context);
+    } catch (e) { setState(() => _error = e.toString()); }
+    finally { setState(() => _loading = false); }
   }
 
   Future<void> _searchByZip() async {
@@ -98,32 +96,29 @@ class _WeatherPageState extends State<WeatherPage> {
       final w = await _svc.getByZipCountry(_zipCtl.text, _selectedCountry, unit: _unit);
       _applyWeather(w);
       if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally { setState(() => _loading = false); }
+    } catch (e) { setState(() => _error = e.toString()); }
+    finally { setState(() => _loading = false); }
   }
 
   Future<void> _searchByLatLon() async {
     final lat = double.tryParse(_latCtl.text);
     final lon = double.tryParse(_lonCtl.text);
     if (lat == null || lon == null) {
-      setState(() => _error = "กรอกพิกัดไม่ถูกต้อง");
-      return;
+      setState(() => _error = "กรอกพิกัดไม่ถูกต้อง"); return;
     }
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCoords(lat, lon, unit: _unit);
       _applyWeather(w);
       if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally { setState(() => _loading = false); }
+    } catch (e) { setState(() => _error = e.toString()); }
+    finally { setState(() => _loading = false); }
   }
 
   void _applyWeather(Weather w) {
     setState(() {
       _weather = w;
-      _bgColors = _colorsFor(w.mainCondition); // gradient ชั้นล่างยังเปลี่ยนตามสภาพอากาศ
+      _bgColors = _colorsFor(w.mainCondition);
     });
   }
 
@@ -132,12 +127,14 @@ class _WeatherPageState extends State<WeatherPage> {
     final unitSymbol = _unit.symbol;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text("Weather App"),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      extendBodyBehindAppBar: true,
 
       drawer: Drawer(
         child: ListView(
@@ -147,7 +144,9 @@ class _WeatherPageState extends State<WeatherPage> {
             DropdownButton<String>(
               value: _selectedCountry,
               isExpanded: true,
-              items: _countries.map((c) => DropdownMenuItem(value: c["code"], child: Text(c["name"]!))).toList(),
+              items: _countries
+                  .map((c) => DropdownMenuItem(value: c["code"], child: Text(c["name"]!)))
+                  .toList(),
               onChanged: (v) => setState(() => _selectedCountry = v!),
             ),
             const SizedBox(height: 10),
@@ -176,8 +175,9 @@ class _WeatherPageState extends State<WeatherPage> {
       ),
 
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          // 1) Gradient ชั้นล่างสุด
+          // 1) gradient ล่างสุด
           AnimatedContainer(
             duration: const Duration(milliseconds: 700),
             curve: Curves.easeInOut,
@@ -190,25 +190,24 @@ class _WeatherPageState extends State<WeatherPage> {
             ),
           ),
 
-          // 2) Lottie พื้นหลัง (Sun/Moon) + crossfade
-          Positioned.fill(
-            child: IgnorePointer(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 600),
+          // 2) Sun/Moon Lottie พื้นหลัง (เต็มจอ + crossfade)
+          IgnorePointer(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              child: SizedBox.expand(
+                key: ValueKey(_bgLottie),
                 child: Lottie.asset(
                   _bgLottie,
-                  key: ValueKey(_bgLottie),
                   fit: BoxFit.cover,
+                  alignment: Alignment.center,
                   repeat: true,
                 ),
               ),
             ),
           ),
 
-          // 3) เลเยอร์ทินท์บาง ๆ เพื่อให้อ่านตัวหนังสือชัด
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.10)),
-          ),
+          // 3) layer ทับบาง ๆ ให้อ่านตัวหนังสือชัด
+          Container(color: Colors.black.withOpacity(0.10)),
 
           // 4) เนื้อหา
           Center(
@@ -245,7 +244,8 @@ class _WeatherPageState extends State<WeatherPage> {
                               const SizedBox(height: 6),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 400),
-                                transitionBuilder: (child, anim) => FadeTransition(opacity: anim, child: child),
+                                transitionBuilder: (child, anim) =>
+                                    FadeTransition(opacity: anim, child: child),
                                 child: Text(
                                   "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
                                   key: ValueKey("${_weather!.temperature}$_unit"),
@@ -257,8 +257,10 @@ class _WeatherPageState extends State<WeatherPage> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(_weather!.mainCondition,
-                                  style: const TextStyle(fontSize: 18, color: Colors.white)),
+                              Text(
+                                _weather!.mainCondition,
+                                style: const TextStyle(fontSize: 18, color: Colors.white),
+                              ),
                             ],
                           ),
           ),
