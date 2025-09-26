@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:weahter_app/pages/weather_page.dart';
+import 'pages/weather_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const WeatherApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class WeatherApp extends StatelessWidget {
+  const WeatherApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'Weather App',
       debugShowCheckedModeBanner: false,
-      home: WeatherPage(),
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF1976D2),
+        useMaterial3: true,
+      ),
+      home: const WeatherPage(),
     );
   }
 }

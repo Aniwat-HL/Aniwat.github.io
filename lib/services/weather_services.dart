@@ -34,32 +34,29 @@ class WeatherServices {
 
   static const _base = 'https://api.openweathermap.org/data/2.5/weather';
 
-  Future<Weather> getByCoords(double lat, double lon, {TempUnit unit = TempUnit.celsius}) async {
+  Future<Weather> _fetch(Uri uri) async {
+    final res = await http.get(uri);
+    if (res.statusCode != 200) {
+      throw Exception('HTTP_${res.statusCode}: ${res.body}');
+    }
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    return Weather.fromJson(map);
+  }
+
+  Future<Weather> getByCoords(double lat, double lon, {TempUnit unit = TempUnit.celsius}) {
     final uri = Uri.parse('$_base?lat=$lat&lon=$lon&appid=$apiKey&units=${unit.apiUnits}');
-    final res = await http.get(uri);
-    if (res.statusCode != 200) {
-      throw Exception('OPENWEATHER_${res.statusCode}');
-    }
-    return Weather.fromJson(jsonDecode(res.body));
+    return _fetch(uri);
   }
 
-  Future<Weather> getByCityCountry(String city, String countryCode, {TempUnit unit = TempUnit.celsius}) async {
-    final q = Uri.encodeQueryComponent('${city.trim()},${countryCode.trim()}');
+  Future<Weather> getByCityCountry(String city, String country, {TempUnit unit = TempUnit.celsius}) {
+    final q = Uri.encodeQueryComponent('${city.trim()},${country.trim()}');
     final uri = Uri.parse('$_base?q=$q&appid=$apiKey&units=${unit.apiUnits}');
-    final res = await http.get(uri);
-    if (res.statusCode != 200) {
-      throw Exception('CITY_NOT_FOUND');
-    }
-    return Weather.fromJson(jsonDecode(res.body));
+    return _fetch(uri);
   }
 
-  Future<Weather> getByZipCountry(String zip, String countryCode, {TempUnit unit = TempUnit.celsius}) async {
-    final q = Uri.encodeQueryComponent('${zip.trim()},${countryCode.trim()}');
+  Future<Weather> getByZipCountry(String zip, String country, {TempUnit unit = TempUnit.celsius}) {
+    final q = Uri.encodeQueryComponent('${zip.trim()},${country.trim()}');
     final uri = Uri.parse('$_base?zip=$q&appid=$apiKey&units=${unit.apiUnits}');
-    final res = await http.get(uri);
-    if (res.statusCode != 200) {
-      throw Exception('ZIP_NOT_FOUND');
-    }
-    return Weather.fromJson(jsonDecode(res.body));
+    return _fetch(uri);
   }
 }
