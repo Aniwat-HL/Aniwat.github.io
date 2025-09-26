@@ -8,13 +8,12 @@ import '../services/weather_services.dart';
 
 class WeatherPage extends StatefulWidget {
   const WeatherPage({super.key});
-
   @override
   State<WeatherPage> createState() => _WeatherPageState();
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  final _svc = WeatherServices("2455e0e548eb74bef9136e56e7715895");
+  final _svc = WeatherServices("2455e0e548eb74bef9136e56e7715895"); // API key
 
   Weather? _weather;
   bool _loading = false;
@@ -36,7 +35,7 @@ class _WeatherPageState extends State<WeatherPage> {
   final _latCtl  = TextEditingController();
   final _lonCtl  = TextEditingController();
 
-  // -------- Animated gradient (ตามสภาพอากาศ) --------
+  // -------- gradient พื้นหลังชั้นล่าง (เปลี่ยนตามสภาพอากาศ) --------
   List<Color> _bgColors = const [Color(0xFF2196F3), Color(0xFF3F51B5)];
   List<Color> _colorsFor(String cond) {
     cond = cond.toLowerCase();
@@ -52,7 +51,7 @@ class _WeatherPageState extends State<WeatherPage> {
     return const [Color(0xFFFFA000), Color(0xFF1976D2)]; // clear/default
   }
 
-  // Lottie icon กลางจอ
+  // -------- ไอคอนสภาพอากาศตรงกลาง --------
   String _assetFor(String cond) {
     cond = cond.toLowerCase();
     if (cond.contains("thunder")) return "assets/lottie/Weather-storm.json";
@@ -67,27 +66,28 @@ class _WeatherPageState extends State<WeatherPage> {
     return "assets/lottie/clear-day.json";
   }
 
-  // -------- Lottie พื้นหลัง Sun/Moon --------
+  // -------- Lottie พื้นหลัง Sun/Moon (เต็มจอ) --------
   String get _dayBg => 'assets/lottie/Sun Rising.json';
   String get _nightBg => 'assets/lottie/Moon Animation.json';
   bool get _isDayNow {
     if (_weather == null) {
-      final h = DateTime.now().hour;
+      final h = DateTime.now().hour; // fallback ชั่วคราวก่อนมีข้อมูลเมือง
       return h >= 6 && h < 18;
     }
     return _weather!.isDayAtLocation;
   }
   String get _bgLottie => _isDayNow ? _dayBg : _nightBg;
 
-  // -------- Search handlers --------
+  // -------- ค้นหา --------
   Future<void> _searchByCity() async {
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCityCountry(_cityCtl.text, _selectedCountry, unit: _unit);
       _applyWeather(w);
       if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) { setState(() => _error = e.toString()); }
-    finally { setState(() => _loading = false); }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally { setState(() => _loading = false); }
   }
 
   Future<void> _searchByZip() async {
@@ -96,29 +96,32 @@ class _WeatherPageState extends State<WeatherPage> {
       final w = await _svc.getByZipCountry(_zipCtl.text, _selectedCountry, unit: _unit);
       _applyWeather(w);
       if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) { setState(() => _error = e.toString()); }
-    finally { setState(() => _loading = false); }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally { setState(() => _loading = false); }
   }
 
   Future<void> _searchByLatLon() async {
     final lat = double.tryParse(_latCtl.text);
     final lon = double.tryParse(_lonCtl.text);
     if (lat == null || lon == null) {
-      setState(() => _error = "กรอกพิกัดไม่ถูกต้อง"); return;
+      setState(() => _error = "กรอกพิกัดไม่ถูกต้อง");
+      return;
     }
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCoords(lat, lon, unit: _unit);
       _applyWeather(w);
       if (Navigator.canPop(context)) Navigator.pop(context);
-    } catch (e) { setState(() => _error = e.toString()); }
-    finally { setState(() => _loading = false); }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally { setState(() => _loading = false); }
   }
 
   void _applyWeather(Weather w) {
     setState(() {
       _weather = w;
-      _bgColors = _colorsFor(w.mainCondition);
+      _bgColors = _colorsFor(w.mainCondition); // อัปเดตสี gradient
     });
   }
 
@@ -177,7 +180,7 @@ class _WeatherPageState extends State<WeatherPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1) gradient ล่างสุด
+          // 1) gradient ชั้นล่าง
           AnimatedContainer(
             duration: const Duration(milliseconds: 700),
             curve: Curves.easeInOut,
@@ -190,7 +193,7 @@ class _WeatherPageState extends State<WeatherPage> {
             ),
           ),
 
-          // 2) Sun/Moon Lottie พื้นหลัง (เต็มจอ + crossfade)
+          // 2) Lottie พื้นหลัง Sun/Moon แบบเต็มจอ
           IgnorePointer(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 600),
@@ -206,7 +209,7 @@ class _WeatherPageState extends State<WeatherPage> {
             ),
           ),
 
-          // 3) layer ทับบาง ๆ ให้อ่านตัวหนังสือชัด
+          // 3) ฟิล์มบางๆ ให้อ่านตัวหนังสือชัด
           Container(color: Colors.black.withOpacity(0.10)),
 
           // 4) เนื้อหา
@@ -216,9 +219,11 @@ class _WeatherPageState extends State<WeatherPage> {
                 : _error != null
                     ? Padding(
                         padding: const EdgeInsets.all(16),
-                        child: Text("Error: $_error",
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white, fontSize: 16)),
+                        child: Text(
+                          "Error: $_error",
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
+                        ),
                       )
                     : _weather == null
                         ? const Text("กรุณาเลือกวิธีค้นหาจาก Drawer",
@@ -244,8 +249,6 @@ class _WeatherPageState extends State<WeatherPage> {
                               const SizedBox(height: 6),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 400),
-                                transitionBuilder: (child, anim) =>
-                                    FadeTransition(opacity: anim, child: child),
                                 child: Text(
                                   "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
                                   key: ValueKey("${_weather!.temperature}$_unit"),
