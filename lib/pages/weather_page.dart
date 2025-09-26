@@ -13,7 +13,7 @@ class WeatherPage extends StatefulWidget {
 }
 
 class _WeatherPageState extends State<WeatherPage> {
-  final _svc = WeatherServices("2455e0e548eb74bef9136e56e7715895"); // API key
+  final _svc = WeatherServices("2455e0e548eb74bef9136e56e7715895");
 
   Weather? _weather;
   bool _loading = false;
@@ -35,24 +35,8 @@ class _WeatherPageState extends State<WeatherPage> {
   final _latCtl  = TextEditingController();
   final _lonCtl  = TextEditingController();
 
-  // -------- gradient พื้นหลังชั้นล่าง (เปลี่ยนตามสภาพอากาศ) --------
-  List<Color> _bgColors = const [Color(0xFF2196F3), Color(0xFF3F51B5)];
-  List<Color> _colorsFor(String cond) {
-    cond = cond.toLowerCase();
-    if (cond.contains("thunder")) return const [Color(0xFF0F172A), Color(0xFF334155)];
-    if (cond.contains("rain") || cond.contains("drizzle") || cond.contains("shower")) {
-      return const [Color(0xFF4F46E5), Color(0xFF0EA5E9)];
-    }
-    if (cond.contains("snow")) return const [Color(0xFF93C5FD), Color(0xFFFFFFFF)];
-    if (cond.contains("mist") || cond.contains("fog") || cond.contains("haze")) {
-      return const [Color(0xFF94A3B8), Color(0xFF64748B)];
-    }
-    if (cond.contains("cloud")) return const [Color(0xFF60A5FA), Color(0xFF1E40AF)];
-    return const [Color(0xFFFFA000), Color(0xFF1976D2)]; // clear/default
-  }
-
-  // -------- ไอคอนสภาพอากาศตรงกลาง --------
-  String _assetFor(String cond) {
+  // ---------- helper: เลือก Lottie ไอคอนกลางจอ ----------
+  String _iconFor(String cond) {
     cond = cond.toLowerCase();
     if (cond.contains("thunder")) return "assets/lottie/Weather-storm.json";
     if (cond.contains("rain") || cond.contains("drizzle") || cond.contains("shower")) {
@@ -66,24 +50,21 @@ class _WeatherPageState extends State<WeatherPage> {
     return "assets/lottie/clear-day.json";
   }
 
-  // -------- Lottie พื้นหลัง Sun/Moon (เต็มจอ) --------
-  String get _dayBg => 'assets/lottie/Sun Rising.json';
-  String get _nightBg => 'assets/lottie/Moon Animation.json';
+  // ---------- กลางวัน/กลางคืน ----------
   bool get _isDayNow {
     if (_weather == null) {
-      final h = DateTime.now().hour; // fallback ชั่วคราวก่อนมีข้อมูลเมือง
+      final h = DateTime.now().hour;
       return h >= 6 && h < 18;
     }
     return _weather!.isDayAtLocation;
   }
-  String get _bgLottie => _isDayNow ? _dayBg : _nightBg;
 
-  // -------- ค้นหา --------
+  // ---------- โหลดข้อมูล ----------
   Future<void> _searchByCity() async {
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCityCountry(_cityCtl.text, _selectedCountry, unit: _unit);
-      _applyWeather(w);
+      setState(() => _weather = w);
       if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -94,7 +75,7 @@ class _WeatherPageState extends State<WeatherPage> {
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByZipCountry(_zipCtl.text, _selectedCountry, unit: _unit);
-      _applyWeather(w);
+      setState(() => _weather = w);
       if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -111,34 +92,118 @@ class _WeatherPageState extends State<WeatherPage> {
     setState(() { _loading = true; _error = null; });
     try {
       final w = await _svc.getByCoords(lat, lon, unit: _unit);
-      _applyWeather(w);
+      setState(() => _weather = w);
       if (Navigator.canPop(context)) Navigator.pop(context);
     } catch (e) {
       setState(() => _error = e.toString());
     } finally { setState(() => _loading = false); }
   }
 
-  void _applyWeather(Weather w) {
-    setState(() {
-      _weather = w;
-      _bgColors = _colorsFor(w.mainCondition); // อัปเดตสี gradient
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    // สีตามกลางวัน/กลางคืน
+    final isDay = _isDayNow;
+    final bg      = isDay ? Colors.white : Colors.black;
+    final onBg    = isDay ? Colors.black87 : Colors.white;
+    final onBgSub = isDay ? Colors.black54 : Colors.white70;
     final unitSymbol = _unit.symbol;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text("Weather App"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+      // ใช้สีพื้นตรงๆ ตามเงื่อนไข (มีแอนิเมชันเปลี่ยนสี)
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        color: bg,
+        child: SafeArea(
+          child: Column(
+            children: [
+              // ---------- AppBar แบบเรียบ ----------
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Scaffold.of(context).openDrawer(),
+                    icon: Icon(Icons.menu, color: onBg),
+                  ),
+                  const SizedBox(width: 8),
+                  Text("Weather App",
+                      style: TextStyle(
+                        color: onBg,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                      )),
+                ],
+              ),
+
+              // ---------- เนื้อหา ----------
+              Expanded(
+                child: Center(
+                  child: _loading
+                      ? CircularProgressIndicator(color: onBg)
+                      : _error != null
+                          ? Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                "Error: $_error",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: onBg, fontSize: 16),
+                              ),
+                            )
+                          : _weather == null
+                              ? Text("กรุณาเลือกวิธีค้นหาจากเมนู",
+                                  style: TextStyle(color: onBg))
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // ไอคอนสภาพอากาศ
+                                    Lottie.asset(
+                                      _iconFor(_weather!.mainCondition),
+                                      width: 200,
+                                      height: 200,
+                                      repeat: true,
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    // เมือง
+                                    Text(
+                                      _weather!.cityName,
+                                      style: GoogleFonts.michroma(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: onBg,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 6),
+
+                                    // อุณหภูมิ (มี transition เล็กน้อย)
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 300),
+                                      child: Text(
+                                        "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
+                                        key: ValueKey("${_weather!.temperature}$_unit"),
+                                        style: GoogleFonts.michroma(
+                                          fontSize: 42,
+                                          color: onBg,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+
+                                    // เงื่อนไข (Clouds / Rain / ...)
+                                    Text(
+                                      _weather!.mainCondition,
+                                      style: TextStyle(fontSize: 18, color: onBgSub),
+                                    ),
+                                  ],
+                                ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
 
+      // ---------- Drawer: ค้นหา/ตั้งค่า ----------
       drawer: Drawer(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -177,98 +242,10 @@ class _WeatherPageState extends State<WeatherPage> {
         ),
       ),
 
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1) gradient ชั้นล่าง
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 700),
-            curve: Curves.easeInOut,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _bgColors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-
-          // 2) Lottie พื้นหลัง Sun/Moon แบบเต็มจอ
-          IgnorePointer(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
-              child: SizedBox.expand(
-                key: ValueKey(_bgLottie),
-                child: Lottie.asset(
-                  _bgLottie,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.center,
-                  repeat: true,
-                ),
-              ),
-            ),
-          ),
-
-          // 3) ฟิล์มบางๆ ให้อ่านตัวหนังสือชัด
-          Container(color: Colors.black.withOpacity(0.10)),
-
-          // 4) เนื้อหา
-          Center(
-            child: _loading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : _error != null
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          "Error: $_error",
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      )
-                    : _weather == null
-                        ? const Text("กรุณาเลือกวิธีค้นหาจาก Drawer",
-                            style: TextStyle(color: Colors.white))
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Lottie.asset(
-                                _assetFor(_weather!.mainCondition),
-                                width: 200,
-                                height: 200,
-                                repeat: true,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _weather!.cityName,
-                                style: GoogleFonts.michroma(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 400),
-                                child: Text(
-                                  "${_weather!.temperature.toStringAsFixed(1)} $unitSymbol",
-                                  key: ValueKey("${_weather!.temperature}$_unit"),
-                                  style: GoogleFonts.michroma(
-                                    fontSize: 42,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _weather!.mainCondition,
-                                style: const TextStyle(fontSize: 18, color: Colors.white),
-                              ),
-                            ],
-                          ),
-          ),
-        ],
-      ),
+      // ปรับสี status bar ให้เข้ากับพื้นหลัง
+      extendBodyBehindAppBar: false,
+      backgroundColor: bg,
+      appBar: null,
     );
   }
 }
